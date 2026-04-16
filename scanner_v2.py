@@ -390,52 +390,79 @@ def monitor_batch1():
 # ── TELEGRAM COMMAND LISTENER ─────────────────────────────────────────────────
 def listen_telegram():
     """Poll Telegram for /scan and /monitor commands."""
-    config   = load_config()
-    token    = config.get("BOT_TOKEN","")
-    if not token: return
-    offset   = 0
+    offset = 0
+    log("Telegram listener starting...")
+
+    # Wait for valid token with retries
+    for attempt in range(10):
+        config = load_config()
+        token  = config.get("BOT_TOKEN","").strip()
+        if token and token != "your_telegram_bot_token":
+            break
+        log(f"Waiting for BOT_TOKEN... attempt {attempt+1}")
+        time.sleep(5)
+
+    if not token or token == "your_telegram_bot_token":
+        log("ERROR: BOT_TOKEN not set in environment variables!")
+        return
+
     url_base = f"https://api.telegram.org/bot{token}"
-    log("Listening for Telegram commands: /scan /monitor /status")
+    log(f"Telegram listener active. Token ends: ...{token[-6:]}")
+
+    # Test connection first
+    try:
+        test = requests.get(f"{url_base}/getMe", timeout=10)
+        if test.status_code == 200:
+            bot_name = test.json().get("result",{}).get("username","unknown")
+            log(f"Telegram connected — @{bot_name}")
+        else:
+            log(f"Telegram getMe failed: {test.status_code} {test.text}")
+    except Exception as e:
+        log(f"Telegram connection test error: {e}")
 
     while True:
         try:
-            r = requests.get(f"{url_base}/getUpdates",
-                             params={"offset": offset, "timeout": 30},
-                             timeout=35)
+            config = load_config()  # reload config each loop
+            r = requests.get(
+                f"{url_base}/getUpdates",
+                params={"offset": offset, "timeout": 30},
+                timeout=35)
+            if r.status_code == 401:
+                log("ERROR: BOT_TOKEN is invalid! Check Railway variables.")
+                time.sleep(30)
+                continue
             if r.status_code != 200:
-                time.sleep(5); continue
+                log(f"getUpdates error: {r.status_code}")
+                time.sleep(5)
+                continue
             updates = r.json().get("result", [])
             for upd in updates:
                 offset = upd["update_id"] + 1
                 msg    = upd.get("message", {})
                 text   = msg.get("text", "").strip().lower()
-                log(f"Command received: {text}")
+                if not text:
+                    continue
+                log(f"Command: {text}")
                 if text in ["/scan", "/scan@swingbot"]:
-                    batch = load_batch1()
+                    batch  = load_batch1()
                     is_new = len(batch) == 0
                     run_scan(is_new_batch=is_new)
-                elif text in ["/newscan"]:
-                    # Force a fresh batch
+                elif text == "/newscan":
                     if os.path.exists(BATCH_FILE): os.remove(BATCH_FILE)
                     run_scan(is_new_batch=True)
                 elif text in ["/monitor", "/check"]:
                     monitor_batch1()
-                elif text in ["/status"]:
+                elif text == "/status":
                     task_heartbeat()
-                elif text in ["/help"]:
+                elif text == "/help":
                     send_telegram(
                         "🤖 <b>SwingBot Commands</b>\n\n"
                         "/scan — Scan Nifty 50 for swing picks\n"
-                        "         (saves as Batch 1 on first scan)\n"
                         "/newscan — Force fresh Batch 1 scan\n"
-                        "/monitor — Check Batch 1 price levels\n"
-                        "/status — Bot health + open positions\n"
-                        "/help — Show this menu\n\n"
-                        "📅 <b>Auto schedule:</b>\n"
-                        "Mon 8:00 AM — Weekly scan\n"
-                        "Mon–Fri 3:00 PM — Auto monitor\n"
-                        "Fri 2:45 PM — Exit reminder\n"
-                        "Fri 4:00 PM — P&L report", config)
+                        "/monitor — Check Batch 1 prices\n"
+                        "/status — Bot health check\n"
+                        "/help — This menu\n\n"
+                        "📅 Auto: Mon 8AM scan, Daily 3PM monitor", config)
         except Exception as e:
             log(f"Listener error: {e}")
             time.sleep(5)
