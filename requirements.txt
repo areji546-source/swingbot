@@ -1,0 +1,8 @@
+smartapi-python
+pyotp
+requests
+pandas
+apscheduler
+pytz
+logzero
+websocket-client
