@@ -51,6 +51,159 @@ NIFTY50 = {
     "HDFCLIFE":"467","LTIM":"17818","SHREECEM":"3103",
 }
 
+# Runtime cache for non-Nifty 50 stock tokens (populated via searchScrip)
+ALL_TOKENS = {}
+
+# ── EXTENDED UNIVERSE ─────────────────────────────────────────────────────────
+# Nifty Next 50 (ranks 51-100 by market cap — large midcap quality stocks)
+NIFTY_NEXT50 = {
+    "BAJAJHLDNG":"16118","SIEMENS":"3150","GODREJCP":"10604","DABUR":"590",
+    "PIDILITIND":"2664","BERGEPAINT":"590","MUTHOOTFIN":"13923","TORNTPHARM":"2142",
+    "COLPAL":"1250","MARICO":"4067","HAVELLS":"2142","VOLTAS":"3283",
+    "AMBUJACEM":"1270","GLAND":"543","IPCALAB":"2029","LUPIN":"10440",
+    "MOTHERSON":"4204","BOSCHLTD":"2181","CUMMINSIND":"1901","MPHASIS":"17971",
+    "NAUKRI":"13751","INDHOTEL":"10960","TATACOMM":"3218","PETRONET":"11351",
+    "SBICARD":"9028","BANDHANBNK":"2263","FEDERALBNK":"1023","AUBANK":"21238",
+    "NYKAA":"19234","ZYDUSLIFE":"10940","ALKEM":"1001","AUROPHARMA":"2070",
+    "TRENT":"1964","VEDL":"3063","SAIL":"3080","NHPC":"13751",
+    "RECLTD":"13751","PFC":"14299","IRCTC":"13751","ZOMATO":"5097",
+    "PAYTM":"21669","POLICYBZR":"21046","DELHIVERY":"14428","NYKAA":"19234",
+}
+
+# Nifty Midcap Select (top 25 midcap — high liquidity)
+NIFTY_MIDCAP_SELECT = {
+    "PERSISTENT":"18365","LTTS":"17421","COFORGE":"21315","HDFCAMC":"4244",
+    "ASTRAL":"14975","TATAELXSI":"2629","KALYANKJIL":"21675","KPITTECH":"21669",
+    "SUPREMEIND":"3432","CAMS":"13751","CHOLAFIN":"1180","MFSL":"3780",
+    "BHEL":"438","NHPC":"13751","IRFC":"13751","PNB":"10666",
+    "UNIONBANK":"5003","BANKBARODA":"1147","IDBI":"14366","CANBK":"10694",
+    "ABBOTINDIA":"3483","SANOFI":"3535","3MINDIA":"3495","HONAUT":"3508",
+}
+
+# High-momentum stocks often traded by swing traders
+SWING_FAVOURITES = {
+    "ZOMATO":"5097","IRCTC":"13751","DMART":"4849","RELAXO":"2974",
+    "JUBLFOOD":"18096","DEVYANI":"21675","WESTLIFE":"21669","BARBEQUE":"21675",
+    "DIXON":"21315","AMBER":"21315","VOLTAS":"3283","BLUESTAR":"1133",
+    "LALPATHLAB":"10940","METROPOLIS":"21046","THYROCARE":"21046",
+    "DEEPAKNTR":"3263","AARTIIND":"7","PIIND":"3938","SUMICHEM":"3351",
+    "GUJGASLTD":"10940","IGL":"2172","MGL":"10940","ATGL":"21675",
+    "SUNTV":"3499","PVRINOX":"13308","INOXWIND":"21675","SUZLON":"3212",
+    "YESBANK":"11915","IDFC":"4262","RBLBANK":"4708","EQUITASBNK":"21675",
+    "PAYTM":"21669","NYKAA":"19234","POLICYBZR":"21046","DELHIVERY":"14428",
+}
+
+# Combined universe for /findsector command
+SECTOR_STOCKS = {
+    "IT":        ["TCS","INFY","HCLTECH","WIPRO","TECHM","MPHASIS","PERSISTENT",
+                  "LTTS","COFORGE","KPITTECH","TATAELXSI"],
+    "BANKING":   ["HDFCBANK","ICICIBANK","AXISBANK","KOTAKBANK","SBIN","INDUSINDBK",
+                  "BANDHANBNK","FEDERALBNK","AUBANK","YESBANK","RBLBANK"],
+    "PHARMA":    ["SUNPHARMA","CIPLA","DRREDDY","DIVISLAB","LUPIN","AUROPHARMA",
+                  "ALKEM","IPCALAB","ABBOTINDIA","LALPATHLAB","METROPOLIS"],
+    "AUTO":      ["MARUTI","TATAMOTORS","M&M","EICHERMOT","HEROMOTOCO","BAJAJ-AUTO",
+                  "MOTHERSON","BOSCHLTD","CUMMINSIND"],
+    "FMCG":      ["HINDUNILVR","ITC","NESTLEIND","BRITANNIA","DABUR","MARICO",
+                  "GODREJCP","COLPAL","TATACONSUM"],
+    "ENERGY":    ["RELIANCE","ONGC","BPCL","NTPC","POWERGRID","COALINDIA",
+                  "ADANIPORTS","ADANIENT","SUZLON","INOXWIND"],
+    "FINANCE":   ["BAJFINANCE","BAJAJFINSV","HDFCAMC","CHOLAFIN","MFSL","MUTHOOTFIN",
+                  "SBICARD","SBILIFE","HDFCLIFE","POLICYBZR"],
+    "CONSUMER":  ["TITAN","ASIANPAINT","DMART","TRENT","NYKAA","RELAXO",
+                  "JUBLFOOD","DEVYANI","WESTLIFE","KALYANKJIL"],
+    "INFRA":     ["LT","SIEMENS","HAVELLS","BHEL","RECLTD","PFC","IRFC",
+                  "NHPC","ADANIPORTS"],
+    "MIDCAP_IT": ["PERSISTENT","LTTS","COFORGE","KPITTECH","TATAELXSI",
+                  "MPHASIS","DIXON","AMBER"],
+}
+
+def get_universe(index_name):
+    """Return the right stock universe based on index name."""
+    universes = {
+        "nifty50":    NIFTY50,
+        "next50":     NIFTY_NEXT50,
+        "midcap":     NIFTY_MIDCAP_SELECT,
+        "swing":      SWING_FAVOURITES,
+        "all":        {**NIFTY50, **NIFTY_NEXT50, **NIFTY_MIDCAP_SELECT,
+                       **SWING_FAVOURITES},
+    }
+    return universes.get(index_name.lower(), NIFTY50)
+
+
+
+# ── EXTENDED STOCK UNIVERSE ───────────────────────────────────────────────────
+# Nifty Next 50, popular Midcaps, and high-volume smallcaps
+# Tokens verified for Angel One SmartAPI
+
+NIFTY_NEXT50 = {
+    "ADANIGREEN":  "25",    "ADANITRANS":  "25",   "AMBUJACEM":  "1270",
+    "BAJAJHLDNG":  "317",   "BANKBARODA":  "4668", "BEL":        "383",
+    "BERGEPAINT":  "404",   "BOSCHLTD":    "2209", "CANBK":      "10794",
+    "CHOLAFIN":    "685",   "COLPAL":      "718",  "CONCOR":     "4749",
+    "DABUR":       "772",   "DLF":         "14732","GAIL":        "910",
+    "GODREJCP":    "10099", "HAVELLS":     "10750","HINDZINC":    "1394",
+    "ICICIGI":     "21770", "ICICIPRULI":  "18652","INDUSTOWER":  "29135",
+    "IRCTC":       "13611", "LTIM":        "17818","LUPIN":       "10440",
+    "MARICO":      "4067",  "MOTHERSON":   "4204", "MUTHOOTFIN":  "3156",
+    "NAUKRI":      "13751", "PAGEIND":     "14413","PIDILITIND":  "2664",
+    "PIIND":       "2958",  "PNBHOUSING":  "14300","RECLTD":      "11092",
+    "SAIL":        "3273",  "SIEMENS":     "3290", "SRF":         "3273",
+    "TATACOMM":    "3721",  "TORNTPHARM":  "3738", "TRENT":       "3721",
+    "UBL":         "16749", "VEDL":        "3063", "VOLTAS":      "3083",
+    "ZYDUSLIFE":   "7203",
+}
+
+POPULAR_MIDCAP = {
+    "ZOMATO":     "5097",   "PAYTM":      "21296", "NYKAA":      "21813",
+    "POLICYBZR":  "21727",  "DELHIVERY":  "21717", "CARTRADE":   "21781",
+    "IRFC":       "13611",  "RVNL":       "20374", "HAL":        "541",
+    "BDL":        "383",    "MAZAGON":    "25",    "COCHINSHIP": "542",
+    "GRSE":       "542",    "BEML":       "383",   "BHEL":       "438",
+    "PFC":        "14299",  "NHPC":       "13751", "SJVN":       "14977",
+    "HUDCO":      "29135",  "RAILTEL":    "13611",
+    "DIXON":      "9819",   "AMBER":      "21033", "KAYNES":     "21805",
+    "SYRMA":      "21732",  "AVALON":     "21756",
+    "DMART":      "9999",   "TRENT":      "3721",  "VMART":      "21273",
+    "ABFRL":      "25",     "METRO":      "21781",
+    "LALPATHLAB": "10552",  "METROPOLIS": "21274", "THYROCARE":  "16669",
+    "MAXHEALTH":  "21784",  "FORTIS":     "4717",
+    "PERSISTENT": "18365",  "COFORGE":    "10544", "MPHASIS":    "4503",
+    "LTTS":       "18365",  "TATAELXSI":  "3721",
+    "ASTRAL":     "14418",  "SUPREMEIND": "3351",  "FINOLEX":    "3290",
+    "KAJARIACER": "1851",   "CENTURYPLY": "542",
+    "FEDERALBNK": "1023",   "IDFCFIRSTB": "14985", "BANDHANBNK": "21800",
+    "RBLBANK":    "4668",   "CSBBANK":    "694",
+    "OBEROIRLTY": "20862",  "PRESTIGE":   "21720", "PHOENIXLTD": "21796",
+    "SOBHA":      "3290",   "BRIGADE":    "542",
+}
+
+# Combined universe for broad scan
+BROAD_UNIVERSE = {**NIFTY50, **NIFTY_NEXT50, **POPULAR_MIDCAP}
+
+# Sector grouping for smart filtering
+SECTORS = {
+    "Banking":     ["HDFCBANK","ICICIBANK","AXISBANK","KOTAKBANK","SBIN",
+                    "FEDERALBNK","IDFCFIRSTB","BANDHANBNK","RBLBANK","CSBBANK",
+                    "INDUSINDBK","BANKBARODA","CANBK"],
+    "IT":          ["TCS","INFY","HCLTECH","WIPRO","TECHM","PERSISTENT",
+                    "COFORGE","MPHASIS","LTTS","TATAELXSI","LTIM"],
+    "Auto":        ["TATAMOTORS","MARUTI","M&M","BAJAJ-AUTO","HEROMOTOCO",
+                    "EICHERMOT","MOTHERSON"],
+    "Pharma":      ["SUNPHARMA","CIPLA","DRREDDY","DIVISLAB","LUPIN",
+                    "ZYDUSLIFE","TORNTPHARM","LALPATHLAB","METROPOLIS"],
+    "Consumer":    ["HINDUNILVR","ITC","DABUR","MARICO","COLPAL","GODREJCP",
+                    "BRITANNIA","NESTLEIND","TATACONSUM","PAGEIND"],
+    "Infra/PSU":   ["LT","NTPC","POWERGRID","ONGC","GAIL","BEL","HAL",
+                    "BHEL","IRCTC","IRFC","RVNL","PFC","RECLTD"],
+    "Retail":      ["DMART","TRENT","VMART","ABFRL","METRO","NYKAA","ZOMATO"],
+    "Finance":     ["BAJFINANCE","BAJAJFINSV","CHOLAFIN","MUTHOOTFIN",
+                    "PNBHOUSING","PAYTM","POLICYBZR"],
+    "Realty":      ["DLF","OBEROIRLTY","PRESTIGE","PHOENIXLTD","SOBHA","BRIGADE"],
+    "Metals":      ["TATASTEEL","JSWSTEEL","HINDALCO","COALINDIA","VEDL","SAIL"],
+}
+
+
+
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 def load_config():
     cfg = {}
@@ -195,18 +348,7 @@ def get_candles(symbol, days=260):
             log(f"Candle {symbol}/{exchange}: {e}")
     return None
 
-def get_ltp(symbol):
-    smart = get_session()
-    if not smart: return None
-    token = NIFTY50.get(symbol,"")
-    for exchange in ["NSE","BSE"]:
-        try:
-            d = smart.ltpData(exchange, symbol, token)
-            if d and d.get("data") and d["data"].get("ltp"):
-                return float(d["data"]["ltp"])
-        except Exception as e:
-            log(f"LTP {symbol}/{exchange}: {e}")
-    return None
+# get_ltp defined below in add_to_batch section
 
 # ── FIX 5: INDICATORS WITH HIGHER SCORE THRESHOLD ────────────────────────────
 def add_indicators(df):
@@ -325,6 +467,188 @@ def can_scan():
 def set_scan_time():
     global _last_scan_time
     _last_scan_time = time.time()
+
+
+# ── BROAD MARKET SCANNER ──────────────────────────────────────────────────────
+def run_broad_scan(universe_name="midcap", sector=None):
+    """
+    Scan beyond Nifty 50:
+    - /broadScan or /broadscan        → Nifty Next 50 + Popular Midcaps (~80 stocks)
+    - /sectorScan BANKING             → Scan specific sector only
+    - /sectorScan IT                  → IT sector scan
+    """
+    config  = load_config()
+    capital = float(config.get("CAPITAL", 75000))
+
+    # Cooldown check
+    if not can_scan():
+        wait = int((SCAN_COOLDOWN - (time.time() - _last_scan_time)) / 60)
+        send_telegram(
+            f"⏳ Scan cooldown — wait {wait} more minute(s).", config)
+        return []
+    set_scan_time()
+
+    # Choose universe
+    if sector:
+        sector_upper = sector.upper()
+        # Find matching sector (case insensitive)
+        matched = None
+        for s in SECTORS:
+            if s.upper() == sector_upper or s.upper().startswith(sector_upper[:4]):
+                matched = s
+                break
+        if not matched:
+            available = ", ".join(SECTORS.keys())
+            send_telegram(
+                f"❌ Sector <b>{sector}</b> not found.\n\n"
+                f"Available sectors:\n{available}\n\n"
+                f"Example: /sectorScan Banking", config)
+            return []
+        symbols   = SECTORS[matched]
+        scan_name = f"{matched} sector ({len(symbols)} stocks)"
+        universe  = BROAD_UNIVERSE
+    else:
+        symbols   = list(BROAD_UNIVERSE.keys())
+        scan_name = f"Broad Market ({len(symbols)} stocks)"
+        universe  = BROAD_UNIVERSE
+
+    mkt = market_status_label()
+    send_telegram(
+        f"🔍 <b>Broad Market Scan</b>\n"
+        f"Scanning: {scan_name}\n"
+        f"Market : {mkt}\n"
+        f"Time   : {datetime.now(IST).strftime('%d %b %Y %I:%M %p')} IST\n"
+        f"Est. time: {max(2, len(symbols)//25)} min ⏳", config)
+
+    picks   = []
+    scanned = 0
+
+    for symbol in symbols:
+        scanned += 1
+        if scanned % 15 == 0:
+            send_telegram(
+                f"⏳ Progress: {scanned}/{len(symbols)}... "
+                f"({len(picks)} picks so far)", config)
+
+        # Get token — check all sources
+        token = (NIFTY50.get(symbol) or
+                 NIFTY_NEXT50.get(symbol) or
+                 POPULAR_MIDCAP.get(symbol) or
+                 ALL_TOKENS.get(symbol))
+
+        if not token:
+            token = search_symbol_token(symbol)
+            if token: ALL_TOKENS[symbol] = token
+
+        if not token:
+            time.sleep(0.3); continue
+
+        df = get_candles(symbol, days=260)
+        if df is None or len(df) < 50:
+            time.sleep(0.5); continue
+
+        df = add_indicators(df)
+        score, sigs = score_stock(df)
+        if not sigs:
+            time.sleep(0.4); continue
+
+        low_52w, high_52w, low_6m = get_52w_stats(df)
+        c     = df.iloc[-1]
+        ltp   = get_ltp_any(symbol, token) or round(c["Close"], 2)
+        entry = round(ltp * 1.005, 2)
+        sl    = round(entry * 0.98,  2)
+        t1    = round(entry * 1.03,  2)
+        t2    = round(entry * 1.05,  2)
+        t3    = round(entry * 1.08,  2)
+        risk  = entry - sl
+        qty   = max(1, int((capital * 0.02) / risk)) if risk > 0 else 1
+
+        rng      = high_52w - low_52w
+        pos_pct  = round((ltp - low_52w) / rng * 100, 1) if rng > 0 else 0
+        from_low = round((ltp - low_52w) / low_52w * 100, 1)
+
+        if pos_pct < 30:   zone = "🟢 Near 52W low"
+        elif pos_pct < 60: zone = "🟡 Mid range"
+        else:              zone = "🔴 Near 52W high"
+
+        # Tag the segment
+        if symbol in NIFTY50:          segment = "Nifty 50"
+        elif symbol in NIFTY_NEXT50:   segment = "Nifty Next 50"
+        elif symbol in POPULAR_MIDCAP: segment = "Midcap"
+        else:                          segment = "Other"
+
+        picks.append({
+            "symbol":symbol,"token":token,"score":score,"segment":segment,
+            "signal":sigs[0],"all_signals":sigs,
+            "ltp":ltp,"entry":entry,"sl":sl,
+            "t1":t1,"t2":t2,"t3":t3,
+            "low_52w":low_52w,"high_52w":high_52w,"low_6m":low_6m,
+            "pos_pct":pos_pct,"from_low":from_low,"zone":zone,
+            "rsi":round(c["rsi"],1),"vol":round(c["vol_r"],2),
+            "qty":qty,"invest":round(entry*qty,0),
+            "profit_t2":round((t2-entry)*qty,0),
+            "added":datetime.now(IST).strftime("%Y-%m-%d %H:%M"),
+            "alerted_t1":False,"alerted_t2":False,
+            "alerted_t3":False,"alerted_sl":False,
+        })
+        log(f"BROAD PICK: {symbol} [{segment}] score={score}")
+        time.sleep(0.5)
+
+    picks.sort(key=lambda x: x["score"], reverse=True)
+    top = picks[:6]
+
+    if not top:
+        send_telegram(
+            f"📋 <b>Broad Scan Complete — No Setups Found</b>\n\n"
+            f"Scanned {scanned} stocks.\n"
+            f"No stock met the minimum score of 5.\n\n"
+            f"Market may be in a weak phase — stay in cash.", config)
+        return []
+
+    send_telegram(
+        f"✅ <b>Broad Scan — {len(top)} Picks Found</b>\n"
+        f"From {scanned} stocks scanned\n"
+        f"These will be added to Batch 1 👇", config)
+    time.sleep(1)
+
+    medals = ["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"]
+    for i, p in enumerate(top):
+        mkt_note = "" if market_is_open() else "\n⚠️ Price = last close"
+        send_telegram(
+            f"{'━'*22}\n"
+            f"{medals[i]} <b>#{i+1} {p['symbol']}</b>  "
+            f"[{p['segment']}]  Score: {p['score']}/8\n"
+            f"{'━'*22}\n\n"
+            f"📊 <b>Price Levels</b>{mkt_note}\n"
+            f"  LTP        : ₹{p['ltp']:,}\n"
+            f"  52W Low    : ₹{p['low_52w']:,}  (+{p['from_low']}%)\n"
+            f"  52W High   : ₹{p['high_52w']:,}\n"
+            f"  6M Low     : ₹{p['low_6m']:,}\n"
+            f"  Range pos  : {p['pos_pct']}%  {p['zone']}\n\n"
+            f"🎯 <b>Trade Setup</b>\n"
+            f"  Entry      : ₹{p['entry']:,}\n"
+            f"  Stop Loss  : ₹{p['sl']:,}  (−2%)\n"
+            f"  Target 1   : ₹{p['t1']:,}  (+3%) → sell 40%\n"
+            f"  Target 2   : ₹{p['t2']:,}  (+5%) → sell 40%\n"
+            f"  Target 3   : ₹{p['t3']:,}  (+8%) → sell 20%\n\n"
+            f"📐 Qty: {p['qty']} shares  |  Invest: ₹{int(p['invest']):,}\n"
+            f"📈 {' | '.join(p['all_signals'])}\n"
+            f"   RSI: {p['rsi']}  |  Vol: {p['vol']}×\n\n"
+            f"⚠️ Not SEBI advice.", config)
+        time.sleep(1.5)
+
+    # Merge with existing batch
+    batch     = load_batch1()
+    existing  = {b["symbol"] for b in batch}
+    new_picks = [p for p in top if p["symbol"] not in existing]
+    save_batch1(batch + new_picks)
+    log(f"Broad scan done — {len(new_picks)} new stocks added to Batch 1")
+
+    if new_picks:
+        send_telegram(
+            f"✅ {len(new_picks)} new stocks added to Batch 1.\n"
+            f"Send /monitor to check all positions.", config)
+    return top
 
 # ── CORE SCAN ─────────────────────────────────────────────────────────────────
 def run_scan(is_new_batch=True, auto=False):
@@ -563,58 +887,139 @@ def monitor_batch1():
         time.sleep(1)
 
 # ── FIX 9: /ADD AND /REMOVE COMMANDS ─────────────────────────────────────────
+def search_symbol_token(symbol):
+    """
+    Search Angel One for token of any NSE stock — not just Nifty 50.
+    Returns token string or None if not found.
+    """
+    # First check Nifty 50 list
+    if symbol in NIFTY50:
+        return NIFTY50[symbol]
+    # Search via Angel One SmartAPI searchScrip
+    smart = get_session()
+    if not smart:
+        return None
+    try:
+        result = smart.searchScrip("NSE", symbol)
+        if result and result.get("data"):
+            for item in result["data"]:
+                # Match exact symbol name
+                if item.get("tradingsymbol","").upper() == symbol.upper():
+                    token = str(item.get("symboltoken",""))
+                    log(f"Found token for {symbol}: {token}")
+                    return token
+            # If exact match not found, take first result
+            first = result["data"][0]
+            token = str(first.get("symboltoken",""))
+            name  = first.get("tradingsymbol","")
+            log(f"Using closest match for {symbol}: {name} token={token}")
+            return token
+    except Exception as e:
+        log(f"Symbol search error {symbol}: {e}")
+    return None
+
+def get_ltp_any(symbol, token):
+    """Get LTP for any symbol using its token."""
+    smart = get_session()
+    if not smart or not token: return None
+    for exchange in ["NSE", "BSE"]:
+        try:
+            d = smart.ltpData(exchange, symbol, token)
+            if d and d.get("data") and d["data"].get("ltp"):
+                return float(d["data"]["ltp"])
+        except Exception as e:
+            log(f"LTP {symbol}/{exchange}: {e}")
+    return None
+
+def get_ltp(symbol):
+    """Get LTP — works for Nifty 50 and any other NSE stock."""
+    token = NIFTY50.get(symbol) or ALL_TOKENS.get(symbol)
+    if not token:
+        token = search_symbol_token(symbol)
+        if token:
+            ALL_TOKENS[symbol] = token
+    return get_ltp_any(symbol, token) if token else None
+
 def add_to_batch(text, config):
     """
     /add SYMBOL ENTRY_PRICE QTY
     Example: /add RELIANCE 2850 35
+    Works for ANY NSE stock — not just Nifty 50.
     """
     parts = text.strip().split()
     if len(parts) < 4:
         send_telegram(
             "❌ <b>Format:</b> /add SYMBOL ENTRY QTY\n"
-            "Example: /add RELIANCE 2850 35", config)
-        return
-    symbol = parts[1].upper()
-    if symbol not in NIFTY50:
-        send_telegram(f"❌ {symbol} not in Nifty 50 list.", config)
-        return
-    try:
-        entry  = float(parts[2])
-        qty    = int(parts[3])
-    except:
-        send_telegram("❌ Invalid price or quantity.", config)
+            "Example: /add RELIANCE 2850 35\n"
+            "Example: /add ZOMATO 245 100\n\n"
+            "Works for any NSE stock.", config)
         return
 
-    sl = round(entry * 0.98, 2)
-    t1 = round(entry * 1.03, 2)
-    t2 = round(entry * 1.05, 2)
-    t3 = round(entry * 1.08, 2)
+    symbol = parts[1].upper().replace(".NS","").replace("-EQ","")
+    try:
+        entry = float(parts[2])
+        qty   = int(parts[3])
+    except:
+        send_telegram("❌ Invalid price or quantity.\nExample: /add ZOMATO 245 100", config)
+        return
+
+    if entry <= 0 or qty <= 0:
+        send_telegram("❌ Entry price and quantity must be greater than 0.", config)
+        return
+
+    # Look up token — works for any NSE stock
+    send_telegram(f"🔍 Looking up <b>{symbol}</b>...", config)
+    token = NIFTY50.get(symbol) or ALL_TOKENS.get(symbol)
+    if not token:
+        token = search_symbol_token(symbol)
+        if token:
+            ALL_TOKENS[symbol] = token
+        else:
+            send_telegram(
+                f"❌ <b>{symbol}</b> not found on NSE.\n\n"
+                f"Check the symbol name and try again.\n"
+                f"Use the exact NSE trading symbol\n"
+                f"(e.g. ZOMATO, PAYTM, IRCTC, TATAMOTORS)", config)
+            return
+
+    # Get current LTP to verify symbol is tradeable
+    ltp = get_ltp_any(symbol, token)
+    sl  = round(entry * 0.98,  2)
+    t1  = round(entry * 1.03,  2)
+    t2  = round(entry * 1.05,  2)
+    t3  = round(entry * 1.08,  2)
+    nifty_tag = " (Nifty 50)" if symbol in NIFTY50 else ""
 
     batch = load_batch1()
-    # Update if already exists
-    existing = [b for b in batch if b["symbol"] == symbol]
-    if existing:
-        batch = [b for b in batch if b["symbol"] != symbol]
+    # Replace if already exists
+    batch = [b for b in batch if b["symbol"] != symbol]
     batch.append({
-        "symbol":symbol,"entry":entry,"qty":qty,
+        "symbol":symbol,"token":token,
+        "entry":entry,"qty":qty,
         "sl":sl,"t1":t1,"t2":t2,"t3":t3,
         "score":0,"signal":"Manual entry","all_signals":["Manual"],
-        "ltp":entry,"low_52w":0,"high_52w":0,"low_6m":0,
+        "ltp":ltp or entry,
+        "low_52w":0,"high_52w":0,"low_6m":0,
         "pos_pct":0,"from_low":0,"from_high":0,"zone":"Manual",
-        "rsi":0,"vol":0,"invest":round(entry*qty,0),
+        "rsi":0,"vol":0,
+        "invest":round(entry*qty,0),
         "profit_t2":round((t2-entry)*qty,0),
         "added":datetime.now(IST).strftime("%Y-%m-%d %H:%M"),
     })
     save_batch1(batch)
+
+    ltp_line = f"\nCurrent LTP : ₹{ltp:,}" if ltp else ""
     send_telegram(
-        f"✅ <b>{symbol} added to Batch 1</b>\n\n"
-        f"Entry    : ₹{entry:,}\n"
+        f"✅ <b>{symbol}{nifty_tag} added to Batch 1</b>\n\n"
+        f"Entry    : ₹{entry:,}{ltp_line}\n"
         f"Qty      : {qty} shares\n"
-        f"Stop Loss: ₹{sl:,} (−2%)\n"
-        f"Target 1 : ₹{t1:,} (+3%)\n"
-        f"Target 2 : ₹{t2:,} (+5%)\n"
-        f"Target 3 : ₹{t3:,} (+8%)\n\n"
-        f"Bot will now monitor this position.", config)
+        f"Invested : ₹{int(entry*qty):,}\n\n"
+        f"Stop Loss: ₹{sl:,}  (−2%)\n"
+        f"Target 1 : ₹{t1:,}  (+3%) → sell 40%\n"
+        f"Target 2 : ₹{t2:,}  (+5%) → sell 40%\n"
+        f"Target 3 : ₹{t3:,}  (+8%) → sell 20%\n\n"
+        f"Bot will monitor this position automatically.\n"
+        f"⚠️ Not SEBI advice.", config)
 
 def remove_from_batch(text, config):
     """
@@ -663,26 +1068,279 @@ def task_friday_exit():
 
 HELP_TEXT = (
     "🤖 <b>SwingBot v2.1 — Commands</b>\n\n"
-    "<b>Scanning</b>\n"
-    "/scan — Scan Nifty 50, save top picks as Batch 1\n"
-    "/newscan — Clear Batch 1 and run fresh scan\n\n"
+    "<b>Nifty 50 Scan</b>\n"
+    "/scan — Scan Nifty 50, save as Batch 1\n"
+    "/newscan — Clear Batch 1, fresh scan\n\n"
+    "<b>Find Stocks Outside Nifty 50</b>\n"
+    "/find next50 — Scan Nifty Next 50\n"
+    "/find midcap — Scan Midcap Select\n"
+    "/find swing — Scan swing favourites\n"
+    "/find all — Full 200+ stock universe\n\n"
+    "<b>Sector Scan</b>\n"
+    "/sector list — Show all sectors\n"
+    "/sector IT — Scan IT stocks\n"
+    "/sector BANKING — Scan banking stocks\n"
+    "/sector PHARMA — Scan pharma stocks\n"
+    "(Also: AUTO FMCG ENERGY FINANCE INFRA)\n\n"
     "<b>Monitoring</b>\n"
-    "/monitor — Check all Batch 1 positions\n"
-    "/status — Bot health + open positions\n\n"
+    "/monitor — Check Batch 1 positions\n"
+    "/status — Bot health check\n\n"
     "<b>Manual Trades</b>\n"
-    "/add SYMBOL PRICE QTY — Add a position\n"
-    "  Example: /add RELIANCE 2850 35\n"
-    "/remove SYMBOL — Remove a position\n"
-    "  Example: /remove RELIANCE\n\n"
+    "/add SYMBOL PRICE QTY\n"
+    "  Works for ANY NSE stock\n"
+    "  Example: /add ZOMATO 245 100\n"
+    "/remove SYMBOL\n"
+    "  Example: /remove ZOMATO\n\n"
     "/help — This menu\n\n"
     "📅 <b>Auto Schedule (IST)</b>\n"
+    "Mon 8:00 AM — Weekly Nifty 50 scan\n"
     "Mon–Fri 8:55 AM — Daily heartbeat\n"
-    "Monday 8:00 AM — Weekly auto-scan\n"
-    "Mon–Fri 3:00 PM — Auto position monitor\n"
-    "Fri 2:45 PM — Weekend exit reminder\n"
-    "Every 6 hrs — Session auto-refresh\n\n"
+    "Mon–Fri 3:00 PM — Auto monitor\n"
+    "Fri 2:45 PM — Exit reminder\n"
+    "Every 6 hrs — Session refresh\n\n"
     "⚠️ Not SEBI-registered advice."
 )
+
+
+# ── EXTENDED UNIVERSE SCANNER ─────────────────────────────────────────────────
+
+def find_stocks(index_name, config):
+    """
+    /find command — scan stocks outside Nifty 50.
+    index_name: next50 | midcap | swing | all
+    """
+    universe  = get_universe(index_name)
+    capital   = float(config.get("CAPITAL", 75000))
+    mkt       = market_status_label()
+    label_map = {
+        "next50":  "Nifty Next 50",
+        "midcap":  "Midcap Select",
+        "swing":   "Swing Favourites",
+        "all":     "Full Universe (200+ stocks)",
+    }
+    label = label_map.get(index_name, index_name.upper())
+
+    send_telegram(
+        f"🔍 <b>Scanning {label}...</b>\n"
+        f"Market : {mkt}\n"
+        f"Stocks : {len(universe)}\n"
+        f"⏳ This may take {len(universe)//10 + 1}–{len(universe)//8 + 2} minutes...",
+        config)
+
+    picks   = []
+    scanned = 0
+
+    for symbol, token in universe.items():
+        scanned += 1
+        # Cache tokens for /add command
+        if symbol not in NIFTY50:
+            ALL_TOKENS[symbol] = token
+
+        if scanned % 10 == 0:
+            send_telegram(
+                f"⏳ {scanned}/{len(universe)} analysed... "
+                f"({len(picks)} picks so far)", config)
+
+        # Fetch candles — use token directly for speed
+        smart = get_session()
+        if not smart:
+            time.sleep(0.5); continue
+        end   = datetime.now(IST)
+        start = end - timedelta(days=260)
+        df = None
+        for exchange in ["NSE","BSE"]:
+            try:
+                data = smart.getCandleData({
+                    "exchange":exchange,"symboltoken":token,
+                    "interval":"ONE_DAY",
+                    "fromdate":start.strftime("%Y-%m-%d %H:%M"),
+                    "todate":  end.strftime("%Y-%m-%d %H:%M"),
+                })
+                if data and data.get("data") and len(data["data"]) > 10:
+                    df = pd.DataFrame(data["data"],
+                                      columns=["Date","Open","High","Low","Close","Volume"])
+                    df["Date"] = pd.to_datetime(df["Date"])
+                    df.set_index("Date", inplace=True)
+                    df = df.astype(float)
+                    break
+            except Exception as e:
+                log(f"{symbol}/{exchange}: {e}")
+        if df is None or len(df) < 50:
+            time.sleep(0.4); continue
+
+        df = add_indicators(df)
+        score, sigs = score_stock(df)
+        if not sigs:
+            time.sleep(0.3); continue
+
+        low_52w, high_52w, low_6m = get_52w_stats(df)
+        c     = df.iloc[-1]
+        ltp   = get_ltp_any(symbol, token) or round(c["Close"], 2)
+        entry = round(ltp * 1.005, 2)
+        sl    = round(entry * 0.98, 2)
+        t1    = round(entry * 1.03, 2)
+        t2    = round(entry * 1.05, 2)
+        t3    = round(entry * 1.08, 2)
+        risk  = entry - sl
+        qty   = max(1, int((capital * 0.02) / risk)) if risk > 0 else 1
+        rng   = high_52w - low_52w
+        pos_pct = round((ltp - low_52w) / rng * 100, 1) if rng > 0 else 0
+
+        if pos_pct < 30:    zone = "🟢 Near 52W low"
+        elif pos_pct < 60:  zone = "🟡 Mid range"
+        else:               zone = "🔴 Near 52W high"
+
+        picks.append({
+            "symbol":symbol,"score":score,
+            "signal":sigs[0],"all_signals":sigs,
+            "ltp":ltp,"entry":entry,"sl":sl,
+            "t1":t1,"t2":t2,"t3":t3,
+            "low_52w":low_52w,"high_52w":high_52w,
+            "pos_pct":pos_pct,"zone":zone,
+            "rsi":round(c["rsi"],1),"vol":round(c["vol_r"],2),
+            "qty":qty,"invest":round(entry*qty,0),
+            "profit_t2":round((t2-entry)*qty,0),
+        })
+        log(f"FIND PICK: {symbol} score={score}")
+        time.sleep(0.5)
+
+    picks.sort(key=lambda x: x["score"], reverse=True)
+    top = picks[:6]
+
+    if not top:
+        send_telegram(
+            f"📋 <b>{label} Scan — No Setups Found</b>\n\n"
+            f"No stock in {label} met the minimum score of 5.\n"
+            f"Market may be weak or sideways.", config)
+        return
+
+    send_telegram(
+        f"✅ <b>{label} — {len(top)} Picks Found</b>\n"
+        f"Use /add SYMBOL PRICE QTY to track any of these.", config)
+    time.sleep(1)
+
+    medals = ["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"]
+    for i, p in enumerate(top):
+        send_telegram(
+            f"{'━'*22}\n"
+            f"{medals[i]} <b>#{i+1} {p['symbol']}</b>  Score: {p['score']}/8\n"
+            f"{'━'*22}\n\n"
+            f"📊 <b>Levels</b>\n"
+            f"  LTP      : ₹{p['ltp']:,}\n"
+            f"  52W Low  : ₹{p['low_52w']:,}  {p['zone']}\n"
+            f"  52W High : ₹{p['high_52w']:,}\n"
+            f"  Position : {p['pos_pct']}% of range\n\n"
+            f"🎯 <b>Trade Setup</b>\n"
+            f"  Entry   : ₹{p['entry']:,}\n"
+            f"  SL      : ₹{p['sl']:,}  (−2%)\n"
+            f"  T1      : ₹{p['t1']:,}  (+3%)\n"
+            f"  T2      : ₹{p['t2']:,}  (+5%)\n"
+            f"  T3      : ₹{p['t3']:,}  (+8%)\n\n"
+            f"  Qty: {p['qty']} | Invest: ₹{int(p['invest']):,} | "
+            f"Est.profit: ₹{int(p['profit_t2']):,}\n\n"
+            f"📈 {p['signal']} | RSI: {p['rsi']} | Vol: {p['vol']}×\n\n"
+            f"➡️ To track: /add {p['symbol']} {p['entry']} {p['qty']}\n"
+            f"⚠️ Not SEBI advice.", config)
+        time.sleep(1.5)
+
+
+def find_by_sector(sector, config):
+    """
+    /sector IT | /sector BANKING | /sector PHARMA | /sector list
+    Scans only stocks in a specific sector.
+    """
+    if not sector or sector == "LIST":
+        sectors_list = "\n".join(f"  /sector {s}" for s in SECTOR_STOCKS.keys())
+        send_telegram(
+            f"📂 <b>Available Sectors</b>\n\n{sectors_list}\n\n"
+            f"Example: /sector IT\n"
+            f"Example: /sector PHARMA", config)
+        return
+
+    stocks = SECTOR_STOCKS.get(sector)
+    if not stocks:
+        available = ", ".join(SECTOR_STOCKS.keys())
+        send_telegram(
+            f"❌ Sector '{sector}' not found.\n\n"
+            f"Available: {available}\n\n"
+            f"Send /sector list to see all options.", config)
+        return
+
+    # Build token map for sector
+    sector_universe = {}
+    for sym in stocks:
+        token = NIFTY50.get(sym) or ALL_TOKENS.get(sym)
+        if not token:
+            token = search_symbol_token(sym)
+            if token: ALL_TOKENS[sym] = token
+        if token:
+            sector_universe[sym] = token
+
+    send_telegram(
+        f"🔍 <b>Scanning {sector} Sector</b>\n"
+        f"{len(sector_universe)} stocks | ~{len(sector_universe)//5 + 1} min ⏳",
+        config)
+
+    # Reuse find_stocks logic with this universe
+    capital = float(config.get("CAPITAL", 75000))
+    picks   = []
+
+    for symbol, token in sector_universe.items():
+        df = get_candles(symbol, days=260)
+        if df is None or len(df) < 50:
+            time.sleep(0.5); continue
+        df = add_indicators(df)
+        score, sigs = score_stock(df)
+        if not sigs:
+            time.sleep(0.3); continue
+
+        low_52w, high_52w, _ = get_52w_stats(df)
+        c     = df.iloc[-1]
+        ltp   = get_ltp(symbol) or round(c["Close"], 2)
+        entry = round(ltp * 1.005, 2)
+        sl    = round(entry * 0.98, 2)
+        t1    = round(entry * 1.03, 2)
+        t2    = round(entry * 1.05, 2)
+        t3    = round(entry * 1.08, 2)
+        risk  = entry - sl
+        qty   = max(1, int((capital * 0.02) / risk)) if risk > 0 else 1
+        rng   = high_52w - low_52w
+        pos   = round((ltp - low_52w) / rng * 100, 1) if rng > 0 else 0
+        zone  = "🟢 Near low" if pos < 30 else ("🟡 Mid" if pos < 60 else "🔴 Extended")
+
+        picks.append({
+            "symbol":symbol,"score":score,"signal":sigs[0],
+            "ltp":ltp,"entry":entry,"sl":sl,"t1":t1,"t2":t2,"t3":t3,
+            "low_52w":low_52w,"high_52w":high_52w,"pos":pos,"zone":zone,
+            "rsi":round(c["rsi"],1),"vol":round(c["vol_r"],2),
+            "qty":qty,"invest":round(entry*qty,0),
+            "profit_t2":round((t2-entry)*qty,0),
+        })
+        time.sleep(0.5)
+
+    picks.sort(key=lambda x: x["score"], reverse=True)
+
+    if not picks:
+        send_telegram(
+            f"📋 <b>{sector} Sector — No Setups</b>\n\n"
+            f"No strong signals found in {sector} right now.\n"
+            f"Try again on Monday morning.", config)
+        return
+
+    send_telegram(
+        f"✅ <b>{sector} Sector — {len(picks)} Pick(s)</b>", config)
+    time.sleep(1)
+
+    medals = ["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"]
+    for i, p in enumerate(picks[:5]):
+        send_telegram(
+            f"{medals[i]} <b>{p['symbol']}</b>  Score {p['score']}/8\n"
+            f"LTP ₹{p['ltp']:,} | 52W Low ₹{p['low_52w']:,} {p['zone']}\n"
+            f"Entry ₹{p['entry']:,} | SL ₹{p['sl']:,} | T1 ₹{p['t1']:,} | T2 ₹{p['t2']:,}\n"
+            f"RSI {p['rsi']} | Vol {p['vol']}× | Qty {p['qty']}\n"
+            f"➡️ /add {p['symbol']} {p['entry']} {p['qty']}\n"
+            f"⚠️ Not SEBI advice.", config)
+        time.sleep(1.2)
 
 # ── FLASK WEBHOOK ─────────────────────────────────────────────────────────────
 @app.route("/")
@@ -719,6 +1377,40 @@ def webhook():
             if os.path.exists(ALERTS_FILE): os.remove(ALERTS_FILE)
             threading.Thread(
                 target=run_scan, kwargs={"is_new_batch":True}, daemon=True).start()
+
+        elif cmd in ["/broadscan","/broadScan","/broad"]:
+            threading.Thread(
+                target=run_broad_scan, daemon=True).start()
+
+        elif cmd in ["/sectorscan","/sectorScan","/sector"]:
+            # /sectorScan Banking or /sectorScan IT
+            parts  = text.split()
+            sector = parts[1] if len(parts) > 1 else None
+            if not sector:
+                available = "\n".join(f"  /sectorScan {s}" for s in SECTORS)
+                send_telegram(
+                    f"📊 <b>Available Sectors</b>\n\n{available}\n\n"
+                    f"Example: /sectorScan Banking", config)
+            else:
+                threading.Thread(
+                    target=run_broad_scan,
+                    kwargs={"sector": sector}, daemon=True).start()
+
+        elif cmd == "/find":
+            # /find next50 | /find midcap | /find swing | /find all
+            parts   = text.strip().split()
+            index   = parts[1].lower() if len(parts) > 1 else "next50"
+            threading.Thread(
+                target=find_stocks,
+                args=(index, config), daemon=True).start()
+
+        elif cmd == "/sector":
+            # /sector IT | /sector BANKING | /sector PHARMA etc.
+            parts  = text.strip().split()
+            sector = parts[1].upper() if len(parts) > 1 else ""
+            threading.Thread(
+                target=find_by_sector,
+                args=(sector, config), daemon=True).start()
 
         elif cmd in ["/monitor","/check"]:
             threading.Thread(target=monitor_batch1, daemon=True).start()
