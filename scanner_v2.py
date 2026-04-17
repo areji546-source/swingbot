@@ -28,9 +28,10 @@ except ImportError:
 
 BASE        = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE, "config.txt")
-BATCH_FILE  = os.path.join(BASE, "batch1.json")
-ALERTS_FILE = os.path.join(BASE, "alerts_sent.json")
-LOG_FILE    = os.path.join(BASE, "bot.log")
+BATCH_FILE   = os.path.join(BASE, "batch1.json")
+ALERTS_FILE  = os.path.join(BASE, "alerts_sent.json")
+TOKEN_CACHE  = os.path.join(BASE, "token_cache.json")
+LOG_FILE     = os.path.join(BASE, "bot.log")
 IST         = pytz.timezone("Asia/Kolkata")
 app         = Flask(__name__)
 
@@ -51,8 +52,91 @@ NIFTY50 = {
     "HDFCLIFE":"467","LTIM":"17818","SHREECEM":"3103",
 }
 
-# Runtime cache for non-Nifty 50 stock tokens (populated via searchScrip)
-ALL_TOKENS = {}
+# ── PERSISTENT TOKEN CACHE ───────────────────────────────────────────────────
+# Survives Railway restarts — stored in token_cache.json
+def _load_token_cache():
+    if os.path.exists(TOKEN_CACHE):
+        try:
+            with open(TOKEN_CACHE) as f: return json.load(f)
+        except: pass
+    return {}
+
+def _save_token_cache():
+    try:
+        data = {"tokens": ALL_TOKENS, "symbols": TRADING_SYMBOLS}
+        with open(TOKEN_CACHE, "w") as f: json.dump(data, f)
+    except Exception as e:
+        log(f"Token cache save error: {e}")
+
+_cache = _load_token_cache()
+ALL_TOKENS      = _cache.get("tokens",  {})   # symbol → token
+TRADING_SYMBOLS = _cache.get("symbols", {})   # symbol → exact tradingsymbol
+
+# ── SCRIP MASTER — COMPLETE NSE TOKEN DATABASE ───────────────────────────────
+SCRIP_MASTER = {}   # symbol → {"token": "...", "tradingsymbol": "..."}
+
+def load_scrip_master():
+    """
+    Download Angel One's complete NSE scrip master at startup.
+    This gives us tokens for ALL listed NSE stocks — not just Nifty 50.
+    File URL is public and updated daily by Angel One.
+    """
+    global SCRIP_MASTER
+    url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+    try:
+        log("Downloading Angel One scrip master...")
+        r = requests.get(url, timeout=30,
+                         headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200:
+            log(f"Scrip master HTTP {r.status_code} — will use searchScrip fallback")
+            return False
+        data = r.json()
+        count = 0
+        for item in data:
+            # Only NSE EQ segment
+            if item.get("exch_seg") != "NSE":
+                continue
+            sym   = item.get("symbol","")
+            token = str(item.get("token",""))
+            name  = item.get("name","")
+            # Strip -EQ suffix for our lookup key
+            key = sym.replace("-EQ","").replace("-BE","").upper()
+            if key and token:
+                SCRIP_MASTER[key] = {
+                    "token":         token,
+                    "tradingsymbol": sym,
+                    "name":          name,
+                }
+                count += 1
+        log(f"Scrip master loaded — {count} NSE stocks indexed")
+        # Check for URBANCO
+        if "URBANCO" in SCRIP_MASTER:
+            log(f"URBANCO found: {SCRIP_MASTER['URBANCO']}")
+        return True
+    except Exception as e:
+        log(f"Scrip master load error: {e}")
+        return False
+
+def get_token_from_master(symbol):
+    """Look up token + tradingsymbol from scrip master."""
+    # Try exact match
+    entry = SCRIP_MASTER.get(symbol.upper())
+    if entry:
+        return entry["token"], entry["tradingsymbol"]
+    # Try common variations
+    for variant in [
+        symbol.upper() + "-EQ",
+        symbol.upper().replace("&","AND"),
+        symbol.upper().replace("-",""),
+        symbol.upper().replace(" ",""),
+    ]:
+        key = variant.replace("-EQ","")
+        entry = SCRIP_MASTER.get(key)
+        if entry:
+            return entry["token"], entry["tradingsymbol"]
+    return None, None
+
+
 
 # ── EXTENDED UNIVERSE ─────────────────────────────────────────────────────────
 # Nifty Next 50 (ranks 51-100 by market cap — large midcap quality stocks)
@@ -833,7 +917,8 @@ def monitor_batch1():
         if not token:
             token = search_symbol_token(symbol)
             if token: ALL_TOKENS[symbol] = token
-        ltp   = get_ltp_any(symbol, token) if token else None
+        ts    = p.get("tradingsymbol") or TRADING_SYMBOLS.get(symbol) or symbol
+        ltp   = get_ltp_any(symbol, token, tradingsymbol=ts) if token else None
         stale = "" if market_is_open() else " *"
 
         if not ltp:
@@ -904,48 +989,134 @@ def monitor_batch1():
         time.sleep(1)
 
 # ── FIX 9: /ADD AND /REMOVE COMMANDS ─────────────────────────────────────────
+# Cache for exact tradingsymbols (symbol → exact Angel One tradingsymbol)
+TRADING_SYMBOLS = {}
+
+# ── INSTRUMENT MASTER (loads all NSE tokens on startup) ──────────────────────
+INSTRUMENT_MASTER = {}  # symbol → {token, tradingsymbol}
+
+def load_instrument_master():
+    """
+    Download Angel One's complete NSE instrument master CSV.
+    This contains tokens for ALL NSE stocks — including new IPOs like URBANCO.
+    Called once on startup and cached in memory.
+    """
+    global INSTRUMENT_MASTER
+    if INSTRUMENT_MASTER:
+        return  # already loaded
+
+    url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+    try:
+        log("Loading instrument master from Angel One...")
+        r = requests.get(url, timeout=30)
+        if r.status_code != 200:
+            log(f"Instrument master download failed: {r.status_code}")
+            return
+        instruments = r.json()
+        count = 0
+        for item in instruments:
+            # Only NSE equity stocks
+            if item.get("exch_seg") == "NSE" and item.get("symbol","").endswith("-EQ"):
+                sym   = item["symbol"].replace("-EQ","").upper()
+                token = str(item.get("token",""))
+                ts    = item.get("symbol","")  # e.g. URBANCO-EQ
+                if sym and token:
+                    INSTRUMENT_MASTER[sym] = {"token":token,"tradingsymbol":ts}
+                    count += 1
+        log(f"Instrument master loaded — {count} NSE equity stocks")
+    except Exception as e:
+        log(f"Instrument master error: {e}")
+
+def get_token_from_master(symbol):
+    """Look up token from instrument master. Returns (token, tradingsymbol) or (None, None)."""
+    if not INSTRUMENT_MASTER:
+        load_instrument_master()
+    info = INSTRUMENT_MASTER.get(symbol.upper())
+    if info:
+        return info["token"], info["tradingsymbol"]
+    # Try with common variants
+    for variant in [symbol.upper()+"-EQ", symbol.upper().replace("&","AND")]:
+        clean = variant.replace("-EQ","")
+        info  = INSTRUMENT_MASTER.get(clean)
+        if info:
+            return info["token"], info["tradingsymbol"]
+    return None, None
+
 def search_symbol_token(symbol):
     """
-    Search Angel One for token of any NSE stock — not just Nifty 50.
-    Returns token string or None if not found.
+    Find token for any NSE stock.
+    Priority: static lists → instrument master → live searchScrip API
     """
-    # First check Nifty 50 list
-    if symbol in NIFTY50:
-        return NIFTY50[symbol]
-    # Search via Angel One SmartAPI searchScrip
+    # 1. Check all static lists (fastest)
+    for lookup in [NIFTY50, NIFTY_NEXT50, POPULAR_MIDCAP]:
+        if symbol in lookup:
+            return lookup[symbol]
+
+    # 2. Check instrument master (covers ALL NSE stocks including new IPOs)
+    token, ts = get_token_from_master(symbol)
+    if token:
+        TRADING_SYMBOLS[symbol] = ts
+        ALL_TOKENS[symbol]      = token
+        log(f"Master lookup {symbol}: ts={ts} token={token}")
+        return token
+
+    # 3. Last resort: live searchScrip API
     smart = get_session()
-    if not smart:
-        return None
+    if not smart: return None
     try:
         result = smart.searchScrip("NSE", symbol)
         if result and result.get("data"):
             for item in result["data"]:
-                # Match exact symbol name
-                if item.get("tradingsymbol","").upper() == symbol.upper():
+                ts = item.get("tradingsymbol","").upper()
+                if ts in [symbol.upper(), (symbol+"-EQ").upper()]:
                     token = str(item.get("symboltoken",""))
-                    log(f"Found token for {symbol}: {token}")
+                    TRADING_SYMBOLS[symbol] = ts
+                    ALL_TOKENS[symbol]      = token
+                    log(f"SearchScrip {symbol}: ts={ts} token={token}")
                     return token
-            # If exact match not found, take first result
+            # Take first result
             first = result["data"][0]
             token = str(first.get("symboltoken",""))
-            name  = first.get("tradingsymbol","")
-            log(f"Using closest match for {symbol}: {name} token={token}")
+            ts    = first.get("tradingsymbol","")
+            TRADING_SYMBOLS[symbol] = ts
+            ALL_TOKENS[symbol]      = token
+            log(f"SearchScrip fallback {symbol} → {ts} token={token}")
             return token
     except Exception as e:
-        log(f"Symbol search error {symbol}: {e}")
+        log(f"SearchScrip error {symbol}: {e}")
     return None
 
-def get_ltp_any(symbol, token):
-    """Get LTP for any symbol using its token."""
+def get_ltp_any(symbol, token, tradingsymbol=None):
+    """
+    Get LTP for any symbol using its token.
+    tradingsymbol = exact Angel One symbol (may differ from our symbol string)
+    """
     smart = get_session()
     if not smart or not token: return None
+    # Check scrip master for exact tradingsymbol if not provided
+    if not tradingsymbol:
+        master_entry = SCRIP_MASTER.get(symbol.upper())
+        if master_entry:
+            tradingsymbol = master_entry["tradingsymbol"]
+    # Try with provided symbol variants
+    symbols_to_try = list(dict.fromkeys(filter(None, [
+        tradingsymbol,   # exact Angel One symbol (most reliable)
+        symbol,          # original symbol
+        symbol + "-EQ",  # NSE equity suffix
+        symbol.replace("&","AND"),
+        symbol.replace("-",""),
+    ])))
     for exchange in ["NSE", "BSE"]:
-        try:
-            d = smart.ltpData(exchange, symbol, token)
-            if d and d.get("data") and d["data"].get("ltp"):
-                return float(d["data"]["ltp"])
-        except Exception as e:
-            log(f"LTP {symbol}/{exchange}: {e}")
+        for sym in symbols_to_try:
+            try:
+                d = smart.ltpData(exchange, sym, token)
+                if d and d.get("data") and d["data"].get("ltp"):
+                    price = float(d["data"]["ltp"])
+                    if price > 0:
+                        return price
+            except Exception as e:
+                log(f"LTP {sym}/{exchange}: {e}")
+                continue
     return None
 
 def get_ltp(symbol, token=None):
@@ -1013,8 +1184,9 @@ def add_to_batch(text, config):
     batch = load_batch1()
     # Replace if already exists
     batch = [b for b in batch if b["symbol"] != symbol]
+    ts = TRADING_SYMBOLS.get(symbol, symbol)  # exact Angel One tradingsymbol
     batch.append({
-        "symbol":symbol,"token":token,
+        "symbol":symbol,"token":token,"tradingsymbol":ts,
         "entry":entry,"qty":qty,
         "sl":sl,"t1":t1,"t2":t2,"t3":t3,
         "score":0,"signal":"Manual entry","all_signals":["Manual"],
@@ -1026,6 +1198,7 @@ def add_to_batch(text, config):
         "profit_t2":round((t2-entry)*qty,0),
         "added":datetime.now(IST).strftime("%Y-%m-%d %H:%M"),
     })
+    _save_token_cache()  # persist new token so it survives restarts
     save_batch1(batch)
 
     ltp_line = f"\nCurrent LTP : ₹{ltp:,}" if ltp else ""
@@ -1528,6 +1701,8 @@ if __name__ == "__main__":
     elif cmd == "status":  task_heartbeat()
 
     else:
+        # Load instrument master (all NSE tokens) on startup
+        threading.Thread(target=load_instrument_master, daemon=True).start()
         # Start session
         get_session(force_refresh=True)
         # Start scheduler in background
