@@ -7,3 +7,4 @@ pytz
 logzero
 websocket-client
 flask
+gunicorn
