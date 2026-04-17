@@ -35,7 +35,13 @@ NIFTY50 = {
     "HEROMOTOCO":"1348","APOLLOHOSP":"157","BRITANNIA":"547","GRASIM":"1232",
     "HINDALCO":"1363","INDUSINDBK":"5258","TATACONSUM":"3432","BPCL":"526",
     "ADANIPORTS":"15083","BAJAJ-AUTO":"16669","SBILIFE":"21808",
-    "HDFCLIFE":"467","LTI":"17818","SHREECEM":"3103",
+    "HDFCLIFE":"467","LTIM":"17818","SHREECEM":"3103",
+}
+
+# Exchange mapping — some symbols need BSE exchange on Angel One
+BSE_FALLBACK = {
+    "NESTLEIND":"17963","DIVISLAB":"10940","BAJAJFINSV":"16675",
+    "INDUSINDBK":"5258","EICHERMOT":"910","LTIM":"17818",
 }
 
 IPO_PRICES = {
@@ -127,29 +133,41 @@ def get_candles(symbol, days=200):
     token = NIFTY50.get(symbol)
     if not token: return None
     end, start = datetime.now(IST), datetime.now(IST) - timedelta(days=days)
-    try:
-        data = smart.getCandleData({
-            "exchange":"NSE","symboltoken":token,"interval":"ONE_DAY",
-            "fromdate":start.strftime("%Y-%m-%d %H:%M"),
-            "todate":end.strftime("%Y-%m-%d %H:%M"),
-        })
-        if not data or not data.get("data"): return None
-        df = pd.DataFrame(data["data"],
-                          columns=["Date","Open","High","Low","Close","Volume"])
-        df["Date"] = pd.to_datetime(df["Date"])
-        df.set_index("Date", inplace=True)
-        return df.astype(float)
-    except Exception as e:
-        log(f"Candle error {symbol}: {e}")
-        return None
+    # Try NSE first, then BSE as fallback for problem stocks
+    for exchange in ["NSE", "BSE"]:
+        try:
+            data = smart.getCandleData({
+                "exchange": exchange,
+                "symboltoken": token,
+                "interval": "ONE_DAY",
+                "fromdate": start.strftime("%Y-%m-%d %H:%M"),
+                "todate":   end.strftime("%Y-%m-%d %H:%M"),
+            })
+            if not data or not data.get("data"):
+                continue
+            df = pd.DataFrame(data["data"],
+                              columns=["Date","Open","High","Low","Close","Volume"])
+            df["Date"] = pd.to_datetime(df["Date"])
+            df.set_index("Date", inplace=True)
+            df = df.astype(float)
+            if len(df) > 5:
+                return df
+        except Exception as e:
+            log(f"Candle error {symbol}/{exchange}: {e}")
+            continue
+    log(f"No data for {symbol} on NSE or BSE")
+    return None
 
 def get_ltp(symbol):
     smart = get_session()
     if not smart: return None
-    try:
-        d = smart.ltpData("NSE", symbol, NIFTY50.get(symbol,""))
-        if d and d.get("data"): return float(d["data"]["ltp"])
-    except: pass
+    token = NIFTY50.get(symbol, "")
+    for exchange in ["NSE", "BSE"]:
+        try:
+            d = smart.ltpData(exchange, symbol, token)
+            if d and d.get("data") and d["data"].get("ltp"):
+                return float(d["data"]["ltp"])
+        except: pass
     return None
 
 def add_indicators(df):
