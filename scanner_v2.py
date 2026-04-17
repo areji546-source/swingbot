@@ -321,11 +321,19 @@ def market_status_label():
     return "🔴 CLOSED"
 
 # ── STOCK DATA ────────────────────────────────────────────────────────────────
-def get_candles(symbol, days=260):
+def get_candles(symbol, days=260, token=None):
     """Fetch daily OHLCV. 260 days = ~1 year for 52-week calculations."""
     smart = get_session()
     if not smart: return None
-    token = NIFTY50.get(symbol)
+    # Check all token sources
+    if not token:
+        token = (NIFTY50.get(symbol) or
+                 NIFTY_NEXT50.get(symbol) or
+                 POPULAR_MIDCAP.get(symbol) or
+                 ALL_TOKENS.get(symbol))
+    if not token:
+        token = search_symbol_token(symbol)
+        if token: ALL_TOKENS[symbol] = token
     if not token: return None
     end   = datetime.now(IST)
     start = end - timedelta(days=days)
@@ -348,7 +356,7 @@ def get_candles(symbol, days=260):
             log(f"Candle {symbol}/{exchange}: {e}")
     return None
 
-# get_ltp defined below in add_to_batch section
+
 
 # ── FIX 5: INDICATORS WITH HIGHER SCORE THRESHOLD ────────────────────────────
 def add_indicators(df):
@@ -816,8 +824,17 @@ def monitor_batch1():
 
     for p in batch:
         symbol = p["symbol"]
-        ltp    = get_ltp(symbol)
-        stale  = "" if market_is_open() else " *"
+        # Use stored token if available (critical for non-Nifty stocks)
+        token  = (p.get("token") or
+                  NIFTY50.get(symbol) or
+                  NIFTY_NEXT50.get(symbol) or
+                  POPULAR_MIDCAP.get(symbol) or
+                  ALL_TOKENS.get(symbol))
+        if not token:
+            token = search_symbol_token(symbol)
+            if token: ALL_TOKENS[symbol] = token
+        ltp   = get_ltp_any(symbol, token) if token else None
+        stale = "" if market_is_open() else " *"
 
         if not ltp:
             lines.append(f"⚪ <b>{symbol}</b> — data unavailable")
@@ -931,13 +948,16 @@ def get_ltp_any(symbol, token):
             log(f"LTP {symbol}/{exchange}: {e}")
     return None
 
-def get_ltp(symbol):
+def get_ltp(symbol, token=None):
     """Get LTP — works for Nifty 50 and any other NSE stock."""
-    token = NIFTY50.get(symbol) or ALL_TOKENS.get(symbol)
+    if not token:
+        token = (NIFTY50.get(symbol) or
+                 NIFTY_NEXT50.get(symbol) or
+                 POPULAR_MIDCAP.get(symbol) or
+                 ALL_TOKENS.get(symbol))
     if not token:
         token = search_symbol_token(symbol)
-        if token:
-            ALL_TOKENS[symbol] = token
+        if token: ALL_TOKENS[symbol] = token
     return get_ltp_any(symbol, token) if token else None
 
 def add_to_batch(text, config):
